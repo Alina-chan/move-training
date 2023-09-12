@@ -3,9 +3,11 @@ module teamfight_tactics::tft {
   use sui::object::{Self, UID};
   use sui::tx_context::{Self, TxContext};
   use sui::transfer::{Self};
+  use sui::package; 
+  use sui::display;
 
   // STD imports. 
-  use std::string::{String};
+  use std::string::{utf8, String};
   use std::vector;
 
   struct Player has key, store {
@@ -15,6 +17,13 @@ module teamfight_tactics::tft {
     health: u64, 
     gold: u64, 
     team: vector<Champion>,
+    image_url: String,
+  }
+
+  // Create an Admin capability to allow admins to mint champions.
+  // We skip adding store so that even the Admin cannot transfer the capability to someone else.
+  struct AdminCap has key {
+    id: UID,
   }
 
   // --- TODO: Enrich the Champion struct ---
@@ -29,13 +38,54 @@ module teamfight_tactics::tft {
     name: String,
   }
 
+  // Create a one-time-witness for publisher.
+  struct TFT has drop {}
+
   // Initialize the TFT module.
   // This function is called once when the module is published.
-  // fun init() {}
+  fun init(otw: TFT, ctx: &mut TxContext) {
+    // Create publisher object from OTW. 
+    let publisher = package::claim(otw, ctx);
+
+    let admin_cap = AdminCap {
+      id: object::new(ctx),
+    };
+
+    // Set up the display for champions. 
+    let keys = vector[
+      utf8(b"username"),
+      utf8(b"image_url"),
+    ];
+
+    let values = vector[
+      utf8(b"{username}"),
+      utf8(b"ipfs://{image_url}"), // ipfs://asdjahgdsjhdfgsf.png
+    ];
+
+    let display = display::new_with_fields<Player>(
+      &publisher, keys, values, ctx
+    );
+    
+    display::update_version(&mut display);
+    
+    // We can transfer only if store is added to the AdminCap.
+    // transfer::public_transfer(admin_cap, tx_context::sender(ctx));
+
+    // Custom transfer allows us to transfer the capability even if store is not added.
+    custom_transfer_for_admincap(admin_cap, ctx);
+
+    // Transfer the publisher object to the sender/signer.
+    transfer::public_transfer(publisher, tx_context::sender(ctx));
+
+    // Send the display object to sender/signer.
+    transfer::public_transfer(display, tx_context::sender(ctx));
+  }
 
 
   /// Mints and returns a Player object. 
-  public fun mint_player(username: String, ctx: &mut TxContext): Player {
+  public fun mint_player(
+    username: String, image_url: String, ctx: &mut TxContext
+  ): Player {
     // Create a new player object.
     let player = Player {
       id: object::new(ctx),
@@ -44,6 +94,7 @@ module teamfight_tactics::tft {
       health: 100,
       gold: 0,
       team: vector::empty(),
+      image_url,
     };
 
     // Return the player object.
@@ -52,9 +103,11 @@ module teamfight_tactics::tft {
 
 
   /// Mints and transfers a Player object.
-  public fun mint_and_transfer_player(username: String, ctx: &mut TxContext) {
+  public fun mint_and_transfer_player(
+    username: String, image_url: String, ctx: &mut TxContext
+  ) {
     // Call mint_player which returns a player object.
-    let player = mint_player(username, ctx);
+    let player = mint_player(username, image_url, ctx);
 
     // Transfer the player object to the sender/signer.
     transfer::public_transfer(player, tx_context::sender(ctx));
@@ -73,6 +126,7 @@ module teamfight_tactics::tft {
       health: _,
       gold: _,
       team,
+      image_url: _
     } = player;
 
     // Delete the team vector by hand because Champion doesn't have the drop ability.
@@ -103,11 +157,26 @@ module teamfight_tactics::tft {
     player.health = new_health;
   }
 
-  // --- TODO: Implement a function `mint_champion` ---
-  // - The function should mint a champion object.
-  // - The function should return the champion object.
-
+  // Only the admin can mint champions.
+  public fun mint_champion(
+    _cap: &AdminCap, name: String, _image_url: String
+  ): Champion {
+    let champion = Champion {
+      name,
+    };
+    
+    // Return the champion object.
+    champion
+  }
 
   // --- TODO (optional): Implement a function `add_champion_to_team` ---
   // - The function should add a champion to the player's team vector.
+
+
+  // --- Helper functions ---
+
+  // Private function to transfer the AdminCap capability.
+  fun custom_transfer_for_admincap(cap: AdminCap, ctx: &mut TxContext) {
+    transfer::transfer(cap, tx_context::sender(ctx));
+  }
 }
