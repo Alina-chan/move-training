@@ -117,20 +117,31 @@ module teamfight_tactics::tft {
 
   // --- TODO: Implement the function `burn_player_advanced` --
   /// Burn a player object that also has a non empty team vector.
-  // public fun burn_player_advanced(player: Player) {
+  public fun burn_player_advanced(player: Player) {
     // - You need to pass the Player object to the function.
     // - You need to check if the team vector is empty or not.
     // - If vector is not empty, remove all Champion objects from the vector.
     // - Delete (with destructure) the player object.
     // - Destroy the team vector.
     // - Delete the player object.
+    let Player {
+      id,
+      username: _,
+      addr: _,
+      health: _,
+      gold: _,
+      team,
+    } = player;
+    if (table::is_empty(&team)) {
+      table::destroy_empty(team);
+    } else {
+      table::drop(team);
+    };
+    object::delete(id);
 
-    // if (vector::is_empty(team)) {
-
-    // }
     // Hint: Check the std::vector and sui::object modules to find functions that 
     // can help you.
-  // }
+  }
 
   // Update player health.
   public fun update_health(new_health: u64, player: &mut Player) {
