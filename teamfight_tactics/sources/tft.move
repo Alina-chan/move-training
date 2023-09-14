@@ -23,14 +23,6 @@ module teamfight_tactics::tft {
 
   struct AdminCap has key { id: UID }
 
-  // --- TODO: Enrich the Champion struct ---
-  // - Add extra fields to the Champion struct: 
-  // -- cost (how much gold the champion costs)
-  // -- tier (what tier the champion is, can be 1 <= tier <= 5)
-  // -- copies (how many copies of the champion the player owns)
-  // -- traits (what traits the champion has, e.g. "bruiser", "sorcerer", etc.)
-  // Hint: You can use the `vector` module to store the traits, or find a better
-  // solution from the Sui library. -- Ans: I prefered doing this for the Player.team
   struct Champion has store, drop, copy {
     name: String,
     level: u8,
@@ -116,15 +108,8 @@ module teamfight_tactics::tft {
   }
 
 
-  // --- TODO: Implement the function `burn_player_advanced` --
   /// Burn a player object that also has a non empty team vector.
   public fun burn_player_advanced(player: Player) {
-    // - You need to pass the Player object to the function.
-    // - You need to check if the team vector is empty or not.
-    // - If vector is not empty, remove all Champion objects from the vector.
-    // - Delete (with destructure) the player object.
-    // - Destroy the team vector.
-    // - Delete the player object.
     let Player {
       id,
       username: _,
@@ -149,9 +134,6 @@ module teamfight_tactics::tft {
     player.health = new_health;
   }
 
-  // --- TODO: Implement a function `mint_champion` ---
-  // - The function should mint a champion object.
-  // - The function should return the champion object.
   /// Mint a champion for the champion pool
   fun admin_mint_champion(
     _admin_cap: &AdminCap,
@@ -172,7 +154,6 @@ module teamfight_tactics::tft {
     }
   }
 
-  // --- TODO (optional): Implement a function `add_champion_to_team` ---
   // - The function should add a champion to the player's team vector.
   // Essentially the player "buys" a champion from the champion pool and
   // puts it on her team.
