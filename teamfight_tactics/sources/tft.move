@@ -51,13 +51,14 @@ module teamfight_tactics::tft {
   fun init(ctx: &mut TxContext) {
     // Create the admin cap object.
     let admin_cap = AdminCap { id: object::new(ctx) };
-    let champion_pool =  ChampionPool {
-      id: object::new(ctx),
-      champions: table::new<String, Champion>(ctx), // empty table
-    };
     // Transfer the admin cap object to the sender/signer.
     transfer::transfer(admin_cap, tx_context::sender(ctx));
-    transfer::transfer(champion_pool, tx_context::sender(ctx));
+
+    // Share the champion pool object so that it can be accessible by every player.
+    transfer::share_object(ChampionPool {
+      id: object::new(ctx),
+      champions: table::new<String, Champion>(ctx), // empty table
+    });
   }
 
   /// Mints and returns a Player object. 
@@ -154,18 +155,21 @@ module teamfight_tactics::tft {
   /// Mint a champion for the champion pool
   fun admin_mint_champion(
     _admin_cap: &AdminCap,
-    champion: Champion): Champion {
+    name: String,
+    level: u8,
+    cost: u64,
+    tier: u8,
+    copies: u64,
+    traits: vector<String>): Champion {
 
-    let champion = Champion {
-      name: champion.name,
-      level: 1,
-      cost: champion.cost,
-      tier: champion.tier,
-      copies: champion.copies,
-      traits: champion.traits,
-    };
-
-    champion
+    Champion {
+      name,
+      level,
+      cost,
+      tier,
+      copies,
+      traits
+    }
   }
 
   // --- TODO (optional): Implement a function `add_champion_to_team` ---
@@ -175,14 +179,13 @@ module teamfight_tactics::tft {
   public fun add_champion_to_team(
     player: &mut Player,
     champion_pool: &mut ChampionPool,
-    champion_name: String,
-    price_payed: u64) {
+    champion_name: String) {
     let champion_pool_table: &mut table::Table<String, Champion> = &mut champion_pool.champions;
     
     assert!(table::contains(champion_pool_table, champion_name), EChampionNotInPool);
     let champion: &mut Champion = table::borrow_mut(champion_pool_table, champion_name);
     assert!(champion.copies > 0, EChampionNotAvailable);
-    assert!(champion.cost < price_payed, ENotEnoughGold);
+    assert!(champion.cost < player.gold, ENotEnoughGold);
     player.gold = player.gold - champion.cost;
 
     if (table::contains(&player.team, champion_name)) {
@@ -199,8 +202,7 @@ module teamfight_tactics::tft {
         copies: 1,
         traits: champion.traits,
       };
-      let player_team: &mut table::Table<String, Champion> = &mut player.team;
-      table::add(player_team, champion.name, champion);
+      table::add(&mut player.team, champion.name, champion);
     }
   }
 }
