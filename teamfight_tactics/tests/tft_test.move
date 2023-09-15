@@ -5,7 +5,7 @@ module teamfight_tactics::tft_test {
   use sui::transfer;
   use teamfight_tactics::tft::{Self as tft, Player};
   use sui::object;
-  use std::string::{utf8};
+  use std::string::{utf8, String};
   use std::debug;
 
   const ADMIN: address = @0x01;
@@ -19,7 +19,6 @@ module teamfight_tactics::tft_test {
     // Mint a new player object
     let playerObj = tft::mint_player(
       utf8(b"Alex"),
-      utf8(b"image.com"),
       ts::ctx(&mut test_scenario)
     );
 
@@ -66,11 +65,15 @@ module teamfight_tactics::tft_test {
     
     // Mint a new champion object
     ts::next_tx(&mut test_scenario, ADMIN);
-    let champ = tft::mint_champion(
+    let champ = tft::admin_mint_champion(
       &admin_cap,
       utf8(b"Soraka"),
-      utf8(b"image.com"),
-    );
+      1,
+      8,
+      1, 
+      14,
+      vector<String>[utf8(b"Divine"), utf8(b"Mystic")],
+      );
 
     // Transfer champion to user
     ts::next_tx(&mut test_scenario, ADMIN);
@@ -92,4 +95,14 @@ module teamfight_tactics::tft_test {
   // - mints a new champion object
   // - adds the champion to the player's team
   // - return all necessary objects to their owners
+  // #[test]
+  // fun test_add_champion_to_team() { 
+  //   let test_scenario = ts::begin(ADMIN);
+  //   tft::test_init(ts::ctx(&mut test_scenario));
+  //   ts::next_tx(&mut test_scenario, ADMIN);
+
+
+  //   ts::end(test_scenario);
+  // }
+
 }
