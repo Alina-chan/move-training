@@ -34,6 +34,7 @@ const adminAddress = adminKeypair.getPublicKey().toSuiAddress()
 const mintPlayer = async () => {
   const tx = new TransactionBlock();
 
+  // Mint the player.
   const playerObject = tx.moveCall({
     target: `${packageId}::tft::mint_player`,
     arguments: [
@@ -41,7 +42,17 @@ const mintPlayer = async () => {
       tx.pure("https://placehold.co/600x400/FFF000/000?text=yo", "string"), // image url
     ],
   });
-  
+
+  // Update player health.
+  tx.moveCall({
+    target: `${packageId}::tft::update_health`,
+    arguments: [
+      tx.pure(111, 'u64'), // health
+      playerObject, // player object
+    ],
+  });
+
+  // Transfer the player object to admin address.
   tx.transferObjects([playerObject], tx.pure(adminAddress, 'address'));
   tx.setGasBudget(100000000);
 
