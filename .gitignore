@@ -1,2 +1,10 @@
+# Move files.
 **/build/
 Move.lock
+
+#  Node files.
+node_modules/
+package-lock.json
+
+# Environment 
+.env

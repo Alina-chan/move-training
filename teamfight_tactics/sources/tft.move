@@ -260,7 +260,7 @@ module teamfight_tactics::tft {
   // --- Helper functions ---
 
   // Private function to transfer the AdminCap capability.
-  fun custom_transfer_for_admincap(cap: AdminCap, ctx: &mut TxContext) {
+  public fun custom_transfer_for_admincap(cap: AdminCap, ctx: &mut TxContext) {
     transfer::transfer(cap, tx_context::sender(ctx));
   }
 
@@ -272,11 +272,11 @@ module teamfight_tactics::tft {
   //   };
   // }
 
-  fun add_rank_to_player(player: &mut Player, rank: u64) {
+  public fun add_rank_to_player(player: &mut Player, rank: u64) {
     df::add<String, u64>(&mut player.id, utf8(b"rank"), rank);
   }
 
-  fun update_rank_for_player(player: &mut Player, rank: u64) {
+  public fun update_rank_for_player(player: &mut Player, rank: u64) {
     if(df::exists_(&player.id, rank)) {
       let player_rank = df::borrow_mut<String, u64>(&mut player.id, utf8(b"rank"));
       *player_rank = rank;
