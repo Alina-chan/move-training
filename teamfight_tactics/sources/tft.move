@@ -284,4 +284,24 @@ module teamfight_tactics::tft {
       add_rank_to_player(player, rank);
     }
   }
+
+  // --- Accessors ---
+  public fun get_player_id(player: &Player): &UID {
+    &player.id
+  }
+
+  #[test_only]
+  public fun test_init(ctx: &mut TxContext) {
+    init(
+      TFT {},
+      ctx
+    );
+  }
+
+  #[test_only]
+  public fun test_burn_champion(champion: Champion) {
+    let Champion {
+      name: _
+    } = champion;
+  }
 }
