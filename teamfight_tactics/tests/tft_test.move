@@ -3,7 +3,7 @@ module teamfight_tactics::tft_test {
   // import anything related to the tests we want to run
   use sui::test_scenario::{Self as ts};
   use sui::transfer;
-  use sui::table;
+  // use sui::table;
   use teamfight_tactics::tft::{Self as tft, Player};
   use sui::object;
   use std::string::{utf8, String};
@@ -122,26 +122,30 @@ module teamfight_tactics::tft_test {
 
   #[test]
   fun test_add_champion_to_team() { 
-    // Create test scenario for the Admin
-    let admin_test_scenario = ts::begin(ADMIN);
-    let user_test_scenario = ts::begin(USER);
+    // Create test scenario.
+    let test_scenario = ts::begin(ADMIN);
 
-    // Run the test_init to issue an admincap to the admin
-    tft::test_init(ts::ctx(&mut admin_test_scenario));
+    // Run the test_init to issue an admincap to the admin.
+    tft::test_init(ts::ctx(&mut test_scenario));
 
-    // Create a player object and transfer it to the user's player
+    // Create a player object and transfer it to the user's player.
+    ts::next_tx(&mut test_scenario, ADMIN);
     let player = tft::mint_player(
       utf8(b"Zilean"), 
       utf8(b"image.com"),
-      ts::ctx(&mut user_test_scenario)
+      ts::ctx(&mut test_scenario)
     );
     
-    ts::next_tx(&mut user_test_scenario, USER);
+    // Give some gold to the player
+    tft::update_player_gold(100, &mut player);
+
+    // Transfer the player object to the user.
+    ts::next_tx(&mut test_scenario, ADMIN);
     transfer::public_transfer(player, USER);
 
     // Mint a new champion object
-    let admin_cap = ts::take_from_sender<tft::AdminCap>(&admin_test_scenario);  // Warning! Anything you take, you must send back to user (consume)
-    ts::next_tx(&mut admin_test_scenario, ADMIN);
+    let admin_cap = ts::take_from_sender<tft::AdminCap>(&test_scenario);  // Warning! Anything you take, you must send back to user (consume)
+    ts::next_tx(&mut test_scenario, ADMIN);
     let champion = tft::admin_mint_champion(
       &admin_cap,
       utf8(b"Soraka"), 1, 8, 1, 14,
@@ -149,21 +153,33 @@ module teamfight_tactics::tft_test {
       ); // Who's the owner of this champion?
 
     // TODO Add Soraka to the champion pool - WARNING: Champion pool is a shared object!
-    let champion_pool = ts::take_shared<tft::ChampionPool>(&admin_test_scenario);
-    table::add(&mut champion_pool.champions, utf8(b"Soraka"), champion);
+    ts::next_tx(&mut test_scenario, USER);
+    let champion_pool = ts::take_shared<tft::ChampionPool>(&test_scenario);
+    let champion_name = *tft::get_champion_name(&champion);
+    tft::add_champion_to_pool(champion, &mut champion_pool);
+
+    // Get the player object back from the user.
+    let player = ts::take_from_sender<tft::Player>(&test_scenario);
 
     // Add it to the player's team
     tft::add_champion_to_team(
       &mut player, 
       &mut champion_pool,
-      utf8(b"Soraka")
-      );
+      champion_name,
+    );
 
-    // TODO: Consume (e.g. delete/burn) the champion pool object
-    
-    ts::end(user_test_scenario);
-    ts::return_to_sender(&admin_test_scenario, admin_cap);
-    ts::end(admin_test_scenario);
+    // Return player object to user
+    ts::return_to_sender(&test_scenario, player);
+
+    // Return admin related objects to admin
+    ts::next_tx(&mut test_scenario, ADMIN);
+    ts::return_to_sender(&test_scenario, admin_cap);
+
+    // Return shared object 
+    ts::return_shared(champion_pool);
+
+    // End test
+    ts::end(test_scenario);
   }
 
 }
