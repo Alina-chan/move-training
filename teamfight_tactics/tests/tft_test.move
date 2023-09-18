@@ -62,7 +62,7 @@ module teamfight_tactics::tft_test {
 
     // Check if admin has the AdminCap.
     let admin_cap = ts::take_from_sender<tft::AdminCap>(&test_scenario);
-    debug::print(&admin_cap);
+    // debug::print(&admin_cap);
     
     // Mint a new champion object
     ts::next_tx(&mut test_scenario, ADMIN);
@@ -85,6 +85,27 @@ module teamfight_tactics::tft_test {
 
     // Return admin cap to admin
     ts::return_to_sender(&test_scenario, admin_cap);
+
+    // End the test scenario.
+    ts::end(test_scenario);
+  }
+
+  #[test]
+  fun test_champion_pool_object() {
+    let test_scenario = ts::begin(ADMIN);
+
+    // Run the init function in test mode, which mints
+    // ChampionPool and makes it a shared object.
+    tft::test_init(ts::ctx(&mut test_scenario));
+
+    // Check if ChampionPool shared object exists. 
+    ts::next_tx(&mut test_scenario, ADMIN);
+    let champion_pool = ts::take_shared<tft::ChampionPool>(&test_scenario);
+    debug::print(&champion_pool);
+
+    // Return the ChampionPool shared object.
+    ts::next_tx(&mut test_scenario, ADMIN);
+    ts::return_shared<tft::ChampionPool>(champion_pool);
 
     // End the test scenario.
     ts::end(test_scenario);

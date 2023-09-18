@@ -19,9 +19,25 @@ module teamfight_tactics::tft {
     health: u64, 
     gold: u64, 
     team: table::Table<String, Champion>,
+    // image_url: String,
+    image_url: Option<String>,
   }
 
-  struct AdminCap has key { id: UID }
+  // Event object for when we mint a new player. 
+  struct MintPlayerEvent has copy, drop {
+    player_id: ID,
+  }
+
+  // Create an Admin capability to allow admins to mint champions.
+  // We skip adding store so that even the Admin cannot transfer the capability to someone else.
+  struct AdminCap has key {
+    id: UID,
+  }
+
+  struct ChampionPool has key, store {
+    id: UID,
+    champions: vector<Champion>,
+  }
 
   // --- TODO: Enrich the Champion struct ---
   // - Add extra fields to the Champion struct: 
