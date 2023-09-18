@@ -318,6 +318,23 @@ module teamfight_tactics::tft {
     &player.id
   }
 
+  // Adds a champion to the champion pool.
+  public fun add_champion_to_pool(
+    champion: Champion, champion_pool: &mut ChampionPool
+  ) {
+    table::add(&mut champion_pool.champions, champion.name, champion);
+  }
+
+  // Returns champion name.
+  public fun get_champion_name(champion: &Champion): &String {
+    &champion.name
+  }
+
+  // Updates player gold with given value.
+  public fun update_player_gold(gold: u64, player: &mut Player) {
+    player.gold = gold;
+  }
+
   // --- Helper test functions ---
   #[test_only]
   public fun test_init(ctx: &mut TxContext) {
