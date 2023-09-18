@@ -9,6 +9,7 @@ module teamfight_tactics::tft_test {
   use std::string::{utf8, String};
   use std::debug;
 
+  // Test addresses.
   const ADMIN: address = @0x01;
   const USER: address = @0x02;
 
@@ -20,6 +21,7 @@ module teamfight_tactics::tft_test {
     // Mint a new player object
     let playerObj = tft::mint_player(
       utf8(b"Alex"),
+      utf8(b"image.com"),
       ts::ctx(&mut test_scenario)
     );
 
@@ -62,7 +64,7 @@ module teamfight_tactics::tft_test {
 
     // Check if admin has the AdminCap.
     let admin_cap = ts::take_from_sender<tft::AdminCap>(&test_scenario);
-    debug::print(&admin_cap);
+    // debug::print(&admin_cap);
     
     // Mint a new champion object
     ts::next_tx(&mut test_scenario, ADMIN);
@@ -90,6 +92,27 @@ module teamfight_tactics::tft_test {
     ts::end(test_scenario);
   }
 
+  #[test]
+  fun test_champion_pool_object() {
+    let test_scenario = ts::begin(ADMIN);
+
+    // Run the init function in test mode, which mints
+    // ChampionPool and makes it a shared object.
+    tft::test_init(ts::ctx(&mut test_scenario));
+
+    // Check if ChampionPool shared object exists. 
+    ts::next_tx(&mut test_scenario, ADMIN);
+    let champion_pool = ts::take_shared<tft::ChampionPool>(&test_scenario);
+    debug::print(&champion_pool);
+
+    // Return the ChampionPool shared object.
+    ts::next_tx(&mut test_scenario, ADMIN);
+    ts::return_shared<tft::ChampionPool>(champion_pool);
+
+    // End the test scenario.
+    ts::end(test_scenario);
+  }
+
   // --- TODO: Implement a test function that ---
   // - runs the test init, to issue an admincap to the admin
   // - mints a player object and transfers to the user
@@ -107,8 +130,11 @@ module teamfight_tactics::tft_test {
     tft::test_init(ts::ctx(&mut admin_test_scenario));
 
     // Create a player object and transfer it to the user's player
-    let player = tft::mint_player(utf8(b"Zilean"), 
-      ts::ctx(&mut user_test_scenario));
+    let player = tft::mint_player(
+      utf8(b"Zilean"), 
+      utf8(b"image.com"),
+      ts::ctx(&mut user_test_scenario)
+    );
     
     ts::next_tx(&mut user_test_scenario, USER);
     transfer::public_transfer(player, USER);

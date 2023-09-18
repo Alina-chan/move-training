@@ -1,13 +1,20 @@
 module teamfight_tactics::tft {
   // Sui imports. 
-  use sui::object::{Self, UID};
+  use sui::object::{Self, UID, ID};
   use sui::tx_context::{Self, TxContext};
   use sui::transfer::{Self};
   use sui::table;
+  use sui::package; 
+  use sui::display;
+  use sui::event; 
+  use sui::dynamic_field as df;
 
   // STD imports. 
-  use std::string::{String};
+  use std::string::{utf8, String};
+  // use std::vector;
+  use std::option::{Self, Option};
 
+  // Error codes.
   const ENotEnoughGold: u64 = 1;
   const EChampionNotInPool: u64 = 2;
   const EChampionNotAvailable: u64 = 3;
@@ -19,9 +26,19 @@ module teamfight_tactics::tft {
     health: u64, 
     gold: u64, 
     team: table::Table<String, Champion>,
+    image_url: Option<String>,
   }
 
-  struct AdminCap has key { id: UID }
+  // Event object for when we mint a new player. 
+  struct MintPlayerEvent has copy, drop {
+    player_id: ID,
+  }
+
+  // Create an Admin capability to allow admins to mint champions.
+  // We skip adding store so that even the Admin cannot transfer the capability to someone else.
+  struct AdminCap has key {
+    id: UID,
+  }
 
   // --- TODO: Enrich the Champion struct ---
   // - Add extra fields to the Champion struct: 
@@ -46,26 +63,61 @@ module teamfight_tactics::tft {
     champions: table::Table<String, Champion>
   }
 
+  // Create a one-time-witness for publisher.
+  struct TFT has drop {}
+
   // Initialize the TFT module.
   // This function is called once when the module is published.
-  fun init(ctx: &mut TxContext) {
-    // Create the admin cap object.
-    let admin_cap = AdminCap { id: object::new(ctx) };
-    // Transfer the admin cap object to the sender/signer.
-    transfer::transfer(admin_cap, tx_context::sender(ctx));
+  fun init(otw: TFT, ctx: &mut TxContext) {
+    // Create publisher object from OTW. 
+    let publisher = package::claim(otw, ctx);
 
-    // Share the champion pool object so that it can be accessible by every player.
-    transfer::share_object(ChampionPool {
+    let admin_cap = AdminCap {
+      id: object::new(ctx),
+    };
+
+    let pool = ChampionPool {
       id: object::new(ctx),
       champions: table::new<String, Champion>(ctx), // empty table
-    });
+    };
+
+    // Set up the display for champions. 
+    let keys = vector[
+      utf8(b"username"),
+      utf8(b"image_url"),
+    ];
+
+    let values = vector[
+      utf8(b"{username}"),
+      utf8(b"ipfs://{image_url}"), // ipfs://asdjahgdsjhdfgsf.png
+    ];
+
+    let display = display::new_with_fields<Player>(
+      &publisher, keys, values, ctx
+    );
+
+    display::update_version(&mut display);
+
+    // We can transfer only if store is added to the AdminCap.
+    // transfer::public_transfer(admin_cap, tx_context::sender(ctx));
+
+    // Custom transfer allows us to transfer the capability even if store is not added.
+    custom_transfer_for_admincap(admin_cap, ctx);
+
+    // Transfer the publisher object to the sender/signer.
+    transfer::public_transfer(publisher, tx_context::sender(ctx));
+
+    // Send the display object to sender/signer.
+    transfer::public_transfer(display, tx_context::sender(ctx));
+
+    // Publicly share pool object because we want players to access it.
+    transfer::share_object(pool);
   }
 
   /// Mints and returns a Player object. 
   public fun mint_player( 
-    username: String, 
-    ctx: &mut TxContext): Player {
-    
+    username: String, image_url: String, ctx: &mut TxContext
+  ): Player {
     // Create a new player object.
     let player = Player {
       id: object::new(ctx),
@@ -74,7 +126,16 @@ module teamfight_tactics::tft {
       health: 100,
       gold: 0,
       team: table::new<String, Champion>(ctx), // empty table
+      image_url: option::some<String>(image_url),
     };
+
+    // Construct the event object.
+    let event = MintPlayerEvent {
+      player_id: *object::uid_as_inner(&player.id),
+    };
+
+    // Emit the event.
+    event::emit(event);
 
     // Return the player object.
     player
@@ -82,15 +143,13 @@ module teamfight_tactics::tft {
 
   /// Mints and transfers a Player object.
   public fun mint_and_transfer_player(
-    _admin_cap: &AdminCap, 
-    username: String, 
-    ctx: &mut TxContext
+    _admin_cap: &AdminCap, username: String, image_url: String, ctx: &mut TxContext
   ) {
     // Call mint_player which returns a player object.
-    let player = mint_player(username, ctx);
+    let player = mint_player(username, image_url, ctx);
 
     // Transfer the player object to the sender/signer.
-    transfer::transfer(player, tx_context::sender(ctx));
+    transfer::public_transfer(player, tx_context::sender(ctx));
   }
 
   /// Burns player object.
@@ -105,6 +164,7 @@ module teamfight_tactics::tft {
       health: _,
       gold: _,
       team,
+      image_url: _,
     } = player;
 
     // Delete the team vector by hand because Champion doesn't have the drop ability.
@@ -131,16 +191,40 @@ module teamfight_tactics::tft {
       health: _,
       gold: _,
       team,
+      image_url: _,
     } = player;
+    
     if (table::is_empty(&team)) {
       table::destroy_empty(team);
     } else {
       table::drop(team);
     };
+
+    // Delete the player object.
     object::delete(id);
 
     // Hint: Check the std::vector and sui::object modules to find functions that 
     // can help you.
+
+    // If team was a vector of objects, we could have used the following code:
+    // if (vector::is_empty(&team)) {
+    //   vector::destroy_empty(team);
+    // } else {
+    //   let len = vector::length(&team);
+    //   let i = 0;
+
+    //   while (i < len) {
+    //     let champion = vector::pop_back(&mut team);
+
+    //     let Champion {
+    //       name: _,
+    //     } = champion; 
+
+    //     i = i + 1;
+    //   };
+
+    //   vector::destroy_empty(team);
+    // };
   }
 
   // Update player health.
@@ -159,7 +243,8 @@ module teamfight_tactics::tft {
     cost: u64,
     tier: u8,
     copies: u64,
-    traits: vector<String>): Champion {
+    traits: vector<String>
+  ): Champion {
 
     Champion {
       name,
@@ -178,7 +263,8 @@ module teamfight_tactics::tft {
   public fun add_champion_to_team(
     player: &mut Player,
     champion_pool: &mut ChampionPool,
-    champion_name: String) {
+    champion_name: String
+  ) {
     let champion_pool_table: &mut table::Table<String, Champion> = &mut champion_pool.champions;
     
     assert!(table::contains(champion_pool_table, champion_name), EChampionNotInPool);
@@ -205,6 +291,28 @@ module teamfight_tactics::tft {
     }
   }
 
+  // Adds a dynamic field to the player object, because it was not defined in the struct.
+  public fun add_rank_to_player(player: &mut Player, rank: u64) {
+    df::add<String, u64>(&mut player.id, utf8(b"rank"), rank);
+  }
+
+  // Updates the rank of the player, which is a dynamic field.
+  public fun update_rank_for_player(player: &mut Player, rank: u64) {
+    if(df::exists_(&player.id, rank)) {
+      let player_rank = df::borrow_mut<String, u64>(&mut player.id, utf8(b"rank"));
+      *player_rank = rank;
+    } else {
+      add_rank_to_player(player, rank);
+    }
+  }
+
+  // --- Helper functions ---
+
+  // Private function to transfer the AdminCap capability.
+  public fun custom_transfer_for_admincap(cap: AdminCap, ctx: &mut TxContext) {
+    transfer::transfer(cap, tx_context::sender(ctx));
+  }
+
   // --- Accessors ---
   public fun get_player_id(player: &Player): &UID {
     &player.id
@@ -214,6 +322,7 @@ module teamfight_tactics::tft {
   #[test_only]
   public fun test_init(ctx: &mut TxContext) {
     init(
+      TFT {},
       ctx
     );
   }
