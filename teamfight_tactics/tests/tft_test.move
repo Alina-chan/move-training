@@ -9,6 +9,7 @@ module teamfight_tactics::tft_test {
   use std::string::{utf8, String};
   use std::debug;
 
+  // Test addresses.
   const ADMIN: address = @0x01;
   const USER: address = @0x02;
 
@@ -20,6 +21,7 @@ module teamfight_tactics::tft_test {
     // Mint a new player object
     let playerObj = tft::mint_player(
       utf8(b"Alex"),
+      utf8(b"image.com"),
       ts::ctx(&mut test_scenario)
     );
 
@@ -128,8 +130,11 @@ module teamfight_tactics::tft_test {
     tft::test_init(ts::ctx(&mut admin_test_scenario));
 
     // Create a player object and transfer it to the user's player
-    let player = tft::mint_player(utf8(b"Zilean"), 
-      ts::ctx(&mut user_test_scenario));
+    let player = tft::mint_player(
+      utf8(b"Zilean"), 
+      utf8(b"image.com"),
+      ts::ctx(&mut user_test_scenario)
+    );
     
     ts::next_tx(&mut user_test_scenario, USER);
     transfer::public_transfer(player, USER);
